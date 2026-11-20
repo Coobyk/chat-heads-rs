@@ -1,0 +1,47 @@
+id = "chat_heads"
+name = "Chat Heads"
+version = "0.1.0"
+description = "Draws the sender's player head before their chat messages."
+authors = ["coobyk"]
+api = "0.2"
+side = "client"
+capabilities = ["registries"]
+
+[native]
+game = "26.3"
+horizon = "f00125f61f794aaa3d4e950d301f353b35b6ee3d"
+mixins = "e59da9094f0c2fdda6c627fe9eff22dec6a906f0"
+
+[[native.module]]
+id = "heads"
+file = "crates/horizon-client/src/game.rs"
+name = "umbx_chat_heads"
+source = "src/heads.rs"
+
+# Player chat: every player line — signed or disguised — funnels through
+# `signed_chat_line`, so modifying its first argument records the post-rewrite
+# text that will actually be shown.
+[[native.mixin]]
+id = "record_player"
+target = "horizon_client::game::remote::Game::player_chat_line"
+kind = "MODIFY_ARG"
+selector = "self.signed_chat_line"
+require = 1
+ordinal = 0
+argument = 0
+helper = "src/mixins/record_player.rs"
+bindings = [
+  { name = "line", ty = "horizon_client::text::Text", value = "$value" },
+]
+
+# The whole `draw_chat`: it ends with `chat.draw_at`, whose `layout` +
+# `hud_layout::paint` we re-run with heads and offsets injected between them.
+[[native.mixin]]
+id = "chat_draw"
+target = "horizon_client::game::chat::Game::draw_chat"
+kind = "OVERWRITE"
+helper = "src/mixins/chat_draw.rs"
+bindings = [
+  { name = "game", ty = "&mut Game<'_>", value = "&mut *self" },
+  { name = "batch", ty = "&mut HudBatch", value = "&mut *batch" },
+]

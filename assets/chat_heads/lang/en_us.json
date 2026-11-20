@@ -1,0 +1,20 @@
+{
+    "chat_heads.setting.enabled": "Chat Heads",
+    "chat_heads.setting.enabled.tooltip": "Draw the sender's player head in the chat.",
+    "chat_heads.setting.position": "Head Position",
+    "chat_heads.setting.position.tooltip": "Where a message's head goes.",
+    "chat_heads.position.before_name": "Before Name",
+    "chat_heads.position.before_line": "Before Line",
+    "chat_heads.setting.sender_detection": "Sender Detection",
+    "chat_heads.setting.sender_detection.tooltip": "How the sender is found: from the packet's sender UUID, by matching a known player name in the text, both, or not at all.",
+    "chat_heads.detection.uuid_and_heuristic": "UUID & Heuristics",
+    "chat_heads.detection.uuid_only": "UUID Only",
+    "chat_heads.detection.heuristic_only": "Heuristics Only",
+    "chat_heads.detection.off": "Off",
+    "chat_heads.setting.system_messages": "Heads on System Messages",
+    "chat_heads.setting.system_messages.tooltip": "Let the name heuristics put heads on lines that are not player chat (join, death and similar messages).",
+    "chat_heads.setting.offset_text": "Indent Lines Without Head",
+    "chat_heads.setting.offset_text.tooltip": "Shift lines that draw no head so the text columns still line up.",
+    "chat_heads.setting.head_shadow": "Head Shadow",
+    "chat_heads.setting.head_shadow.tooltip": "Draw a dark copy of the head a pixel down-right, like the text's drop shadow."
+}
