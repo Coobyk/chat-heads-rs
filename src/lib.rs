@@ -1,11 +1,11 @@
 //! Chat Heads' own crate.
 //!
 //! Besides the settings page (Options > Mods > Chat Heads) it holds the
-//! message/sender records the mixins share: `record_add` (every `Chat::add`)
-//! and `record_player` (each received player line's sender UUID) push here,
-//! and the draw-side module under `src/heads.rs` reads them back to decide
-//! which rendered chat line gets a head. Only plain data crosses the
-//! boundary, so the same store works from both patched crates.
+//! message records the mixins share: `record_player` (each player line as it
+//! is about to show) pushes here, and the draw-side module under `src/heads.rs`
+//! reads them back to decide which rendered chat line gets a head. Only plain
+//! data crosses the boundary, so the same store works from both patched
+//! crates.
 
 use std::collections::VecDeque;
 use std::sync::Mutex;
@@ -31,28 +31,6 @@ impl mod_api::Hooks for Mod {
                 0,
             )
             .tooltip("chat_heads.setting.position.tooltip"),
-        );
-        let _ = r.register_setting(
-            mod_api::SettingSpec::choice(
-                "sender_detection",
-                "chat_heads.setting.sender_detection",
-                [
-                    "chat_heads.detection.uuid_and_heuristic",
-                    "chat_heads.detection.uuid_only",
-                    "chat_heads.detection.heuristic_only",
-                    "chat_heads.detection.off",
-                ],
-                0,
-            )
-            .tooltip("chat_heads.setting.sender_detection.tooltip"),
-        );
-        let _ = r.register_setting(
-            mod_api::SettingSpec::toggle(
-                "system_messages",
-                "chat_heads.setting.system_messages",
-                true,
-            )
-            .tooltip("chat_heads.setting.system_messages.tooltip"),
         );
         let _ = r.register_setting(
             mod_api::SettingSpec::toggle(
@@ -81,12 +59,6 @@ pub struct Record {
     /// is wrapped into lines (timestamps and the " (xN)" counter are not in
     /// it — they are added per displayed line).
     pub whole: String,
-    /// The sender's UUID when the packet gave one; `None` for system,
-    /// disguised and client-side lines.
-    pub uuid: Option<u128>,
-    /// `ChatSource::Player`: heuristics always apply to these, system lines
-    /// only when the setting allows.
-    pub player: bool,
 }
 
 /// The chat keeps at most 100 wrapped lines; 150 whole messages always cover
@@ -94,23 +66,11 @@ pub struct Record {
 const MAX_RECORDS: usize = 150;
 static RECORDS: Mutex<VecDeque<Record>> = Mutex::new(VecDeque::new());
 
-/// A line from `Chat::add` (server, system or client-side; signed player
-/// messages are not added through it).
-pub fn note_add(whole: String, player: bool) {
-    push(Record {
-        whole,
-        uuid: None,
-        player,
-    });
-}
-
-/// A player message about to show, with the packet's sender (0 = disguised).
-pub fn note_player(whole: String, sender: u128) {
-    push(Record {
-        whole,
-        uuid: (sender != 0).then_some(sender),
-        player: true,
-    });
+/// A player message about to show. The sender's uuid can't be captured at
+/// the call site (a destructured local the mixin can't bind), so matching is
+/// always the name heuristics in `heads.rs`.
+pub fn note_player(whole: String) {
+    push(Record { whole });
 }
 
 fn push(rec: Record) {

@@ -1,7 +1,7 @@
 // Injected into the game crate as `crate::game::umbx_chat_heads` (see
 // `horizon-mod.toml`): everything the mixins call that needs game or render
 // types. The message records themselves live in the mod crate
-// (`chat_heads_rs`), shared with the render-side `Chat::add` mixin.
+// (`chat_heads_rs`), shared with the `record_player` mixin.
 
 use horizon_client::{
     chat::ChatSource,
@@ -22,11 +22,6 @@ pub struct Settings {
     /// true = before the player's name in the first line, false = before the
     /// first line (`RenderPosition` in the original mod).
     pub before_name: bool,
-    /// `senderDetection`: 0 uuid and heuristics, 1 uuid only, 2 heuristics
-    /// only, 3 off.
-    pub detection: u8,
-    /// `handleSystemMessages`: heuristics on lines that are not player chat.
-    pub system: bool,
     /// `offsetNonPlayerText`: indent every line so heads never unalign text.
     pub offset: bool,
     /// `drawShadow`: a dark copy of the face one pixel down-right.
@@ -42,11 +37,6 @@ pub fn settings(game: &crate::game::Game<'_>) -> Settings {
             let v = v.trim();
             v != "1" && v != "before_line"
         }),
-        detection: get("sender_detection")
-            .and_then(|v| v.trim().parse::<u8>().ok())
-            .unwrap_or(0)
-            .min(3),
-        system: on(get("system_messages")),
         offset: on(get("offset_text")),
         shadow: on(get("head_shadow")),
     }
@@ -54,7 +44,6 @@ pub fn settings(game: &crate::game::Game<'_>) -> Settings {
 
 /// A player's face as the tab list resolves it.
 struct PlayerEntry {
-    uuid: u128,
     name: String,
     skin: String,
     hat: bool,
@@ -82,7 +71,6 @@ fn collect_players(game: &mut crate::game::Game<'_>) -> Vec<PlayerEntry> {
                 // until the download arrives).
                 let skin = game.face_skin(p.uuid, &p.skin);
                 out.push(PlayerEntry {
-                    uuid: p.uuid,
                     name: p.name,
                     skin,
                     hat: p.show_hat,
@@ -102,7 +90,6 @@ fn collect_players(game: &mut crate::game::Game<'_>) -> Vec<PlayerEntry> {
             crate::game::scoreboard::local_tab_players(me, guests)
                 .into_iter()
                 .map(|p| PlayerEntry {
-                    uuid: p.uuid,
                     flip: p.name == "Dinnerbone" || p.name == "Grumm",
                     name: p.name,
                     skin: p.skin,
@@ -150,27 +137,9 @@ fn name_scan<'a>(whole: &str, players: &'a [PlayerEntry]) -> Option<(String, &'a
     best.map(|(_, _, p)| (p.name.clone(), p))
 }
 
-/// The head a message record draws, per `senderDetection` and
-/// `handleSystemMessages`.
-fn resolve(rec: &chat_heads_rs::Record, players: &[PlayerEntry], s: &Settings) -> Option<Head> {
-    if s.detection == 3 {
-        return None;
-    }
-    if s.detection != 2 {
-        if let Some(uuid) = rec.uuid {
-            if let Some(p) = players.iter().find(|p| p.uuid == uuid) {
-                return Some(Head {
-                    skin: p.skin.clone(),
-                    hat: p.hat,
-                    flip: p.flip,
-                    name: p.name.clone(),
-                });
-            }
-        }
-    }
-    if s.detection == 1 || (!rec.player && !s.system) {
-        return None;
-    }
+/// The head a message record draws: the earliest known player name the
+/// heuristics find in its whole text.
+fn resolve(rec: &chat_heads_rs::Record, players: &[PlayerEntry]) -> Option<Head> {
     name_scan(&rec.whole, players).map(|(name, p)| Head {
         skin: p.skin.clone(),
         hat: p.hat,
@@ -233,7 +202,7 @@ fn decorate(
         let plain = chat_heads_rs::strip_timestamp(&plain);
         if let Some(rec) = chat_heads_rs::first_line_of(plain, recs) {
             // A message's first line.
-            match resolve(rec, players, s) {
+            match resolve(rec, players) {
                 Some(head) if s.before_name => {
                     // Where the name sits in this line (the timestamp prefix
                     // shifts it; a name that never shows falls back to the

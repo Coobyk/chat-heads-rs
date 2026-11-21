@@ -7,16 +7,14 @@ messages.
 
 ## How it works
 
-Three mixins and one injected module (`src/heads.rs`,
+Two mixins and one injected module (`src/heads.rs`,
 `crate::game::umbx_chat_heads`):
 
-- **`record_add`** — `HEAD` on `horizon_client_render::chat::Chat::add`.
-  Every server/system/client line's whole plain text goes into a small
-  ring buffer (`src/lib.rs`, shared through the mod crate's own name).
-- **`record_player`** — `AFTER_CALL` on `self.chat_received` inside
-  `Game::player_chat_line`. Signed/unsigned player lines carry the packet's
-  sender UUID here (and only here), so the record keeps `sender` next to the
-  line text it was about to show.
+- **`record_player`** — `MODIFY_ARG` on the `self.signed_chat_line` call
+  inside `Game::player_chat_line`. Every player line — signed or disguised —
+  funnels through it, so modifying its first argument records the
+  post-rewrite text that will actually be shown into a small ring buffer
+  (`src/lib.rs`, shared through the mod crate's own name).
 - **`chat_draw`** — `OVERWRITE` of `Game::draw_chat`. The body is the
   original verbatim except the final `chat.draw_at` becomes
   `umbx_chat_heads::draw`, which re-does `Chat::layout` → decorate →
@@ -49,27 +47,25 @@ Options → Mods → Chat Heads (translated via `assets/chat_heads/lang`):
 - **Chat Heads** — master toggle.
 - **Head Position** — `Before Name` (upstream's `BEFORE_NAME` default) or
   `Before Line`.
-- **Sender Detection** — `UUID & Heuristics` (default), `UUID Only`,
-  `Heuristics Only`, `Off`.
-- **Heads on System Messages** — name heuristics on non-player lines
-  (upstream's `handleSystemMessages`).
 - **Indent Lines Without Head** — upstream's `offsetNonPlayerText`.
 - **Head Shadow** — upstream's `drawShadow`.
 
 ## Differences and limits versus the Fabric mod
 
 - No `threeDeeNess` (3-D head extrusion), no `nameAliases`, no
-  `rightPadding`/`smartHeuristics` switches, and no config-file import: the
-  settings above are the whole surface in this first version.
+  `rightPadding`/`smartHeuristics`/`senderDetection`/`handleSystemMessages`
+  switches, and no config-file import: the settings above are the whole
+  surface in this first version. The sender is always found by the name
+  heuristics — the `signed_chat_line` call site can't lend its `sender`
+  local to the mixin, so the packet's sender UUID is never recorded and
+  upstream's UUID detection paths (and the two switches gating them) do not
+  exist here.
 - `BEFORE_NAME` places the head at the player name found in the *first* line's
   text; if the name is absent it falls back to the line start, like upstream's
   `BEFORE_LINE` fallback.
-- Own/outgoing messages and client-side lines are recorded without a UUID and
-  rely on name heuristics, same as upstream treats non-packet lines.
 
 ## Build
 
 ```sh
-rsync -az --delete -e /tmp/ibssh . rowser:mods/chat-heads-rs/
-instabox ssh rowser '~/.local/bin/horizon-launcher native-build --trust-native-code ~/mods/chat-heads-rs'
+horizon-launcher native-build --trust-native-code .
 ```
